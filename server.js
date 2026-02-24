@@ -48,6 +48,13 @@ app.get("/", (req, res) => {
   res.send("AI Calling SaaS Backend Running 🚀");
 });
 
+app.get("/health", (req, res) => {
+  res.json({
+    status: "OK",
+    message: "Backend Working Fine"
+  });
+});
+
 // ================== SERVER ==================
 const PORT = process.env.PORT || 5000;
 
