@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Payment Test</title>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+
+<body>
+
+<h2>CallForge AI - Pro Plan ₹3999</h2>
+<button onclick="startPayment()">Pay ₹3999</button>
+
+<script>
+async function startPayment() {
+
+  try {
+
+    // ✅ USER JWT TOKEN
+    const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5OTU2ZjBkZjM3NzVjZWRhMzIxMzNlZCIsImlhdCI6MTc3MTQ3MjA2MiwiZXhwIjoxNzcyMDc2ODYyfQ.zvUjOUbaQLDr_RBfjkjSmgethU8lGcOYWpt6Lalpf7E";
+
+    // ===============================
+    // 🔹 STEP 1 - CREATE ORDER
+    // ===============================
+    const orderRes = await fetch("http://localhost:5000/api/payment/create-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify({ plan: "pro3999" })
+    });
+
+    const orderData = await orderRes.json();
+
+    if (!orderData.success) {
+      alert("❌ Order creation failed");
+      return;
+    }
+
+    console.log("Order Created:", orderData);
+
+    // ===============================
+    // 🔹 STEP 2 - OPEN RAZORPAY
+    // ===============================
+    const options = {
+      key: "rzp_test_SHtrrOiatMN20Y", // ✅ Only KEY_ID
+      amount: orderData.order.amount,
+      currency: "INR",
+      name: "CallForge AI",
+      description: "Pro Plan 3999",
+      order_id: orderData.order.id,
+
+      handler: async function (response) {
+
+        console.log("Payment Response:", response);
+
+        // ===============================
+        // 🔹 STEP 3 - VERIFY PAYMENT
+        // ===============================
+        const verifyRes = await fetch("http://localhost:5000/api/payment/verify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+          },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            plan: "pro3999"   // 🔥 VERY IMPORTANT
+          })
+        });
+
+        const verifyData = await verifyRes.json();
+
+        if (verifyData.success) {
+          alert("✅ Payment Verified & Plan Activated");
+        } else {
+          alert("❌ Payment Verification Failed");
+        }
+      },
+
+      theme: {
+        color: "#3399cc"
+      }
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
+
+  } catch (err) {
+    console.error(err);
+    alert("Something went wrong ❌");
+  }
+}
+</script>
+
+</body>
+</html>
