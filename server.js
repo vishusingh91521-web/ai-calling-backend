@@ -36,7 +36,7 @@ const planRoutes = require("./routes/planRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const voiceRoutes = require("./routes/voiceRoutes"); // ElevenLabs
 
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/call", callRoutes);
 app.use("/api/plan", planRoutes);
