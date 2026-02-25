@@ -1,6 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
+const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const {
@@ -9,30 +14,14 @@ const {
   getDashboard,
   upgradePlan,
   downgradeToFree,
-  verifyPayment,
-  googleLogin
+  verifyPayment
 } = require("../controllers/authController");
 
-// Public Routes
-router.post("/google", googleLogin);
+// ================= PUBLIC ROUTES =================
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 
-// Protected Routes
-router.get("/dashboard", authMiddleware, getDashboard);
-router.post("/upgrade", authMiddleware, upgradePlan);
-
-// Downgrade Plan 
-router.post("/downgrade", authMiddleware, downgradeToFree);
-
-// Razorpay plan
-router.post("/verify-payment", authMiddleware, verifyPayment);
-
-// Google Login
-router.post("/google-login", async (req, res) => {
-  const { OAuth2Client } = require("google-auth-library");
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
+// ================= GOOGLE LOGIN =================
 router.post("/google-login", async (req, res) => {
   try {
     const { token } = req.body;
@@ -52,6 +41,8 @@ router.post("/google-login", async (req, res) => {
         name,
         email,
         password: "google_user",
+        plan: "free",
+        callsRemaining: 10
       });
     }
 
@@ -67,11 +58,15 @@ router.post("/google-login", async (req, res) => {
     });
 
   } catch (error) {
-    console.log(error);
+    console.log("Google Login Error:", error);
     res.status(500).json({ message: "Google Login Failed" });
   }
 });
 
-})
+// ================= PROTECTED ROUTES =================
+router.get("/dashboard", authMiddleware, getDashboard);
+router.post("/upgrade", authMiddleware, upgradePlan);
+router.post("/downgrade", authMiddleware, downgradeToFree);
+router.post("/verify-payment", authMiddleware, verifyPayment);
 
 module.exports = router;

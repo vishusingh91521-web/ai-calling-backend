@@ -10,38 +10,38 @@ const path = require("path");
 
 const app = express();
 
+// ================== CORS CONFIG ==================
+app.use(cors({
+  origin: [
+    "http://localhost:5500",
+    "http://localhost:3000",
+    "https://ai-calling-frontend.onrender.com"
+  ],
+  credentials: true
+}));
+
 // ================== MIDDLEWARES ==================
-app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended:true }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname)));
 
 // ================== MONGODB CONNECTION ==================
-mongoose
-  .connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URI)
   .then((conn) => {
     console.log("✅ MongoDB Connected Successfully");
     console.log("📂 Connected Database:", conn.connection.name);
-
   })
   .catch((err) => {
     console.log("❌ MongoDB Error:", err.message);
   });
 
 // ================== ROUTES ==================
-const authRoutes = require("./routes/authRoutes");
-const dashboardRoutes = require("./routes/dashboardRoutes");
-const callRoutes = require("./routes/callRoutes");
-const planRoutes = require("./routes/planRoutes");
-const paymentRoutes = require("./routes/paymentRoutes");
-const voiceRoutes = require("./routes/voiceRoutes"); // ElevenLabs
-
 app.use("/api/auth", require("./routes/authRoutes"));
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/call", callRoutes);
-app.use("/api/plan", planRoutes);
-app.use("/api/payment", paymentRoutes);
-app.use("/api/voice", voiceRoutes); // Voice API
+app.use("/api/dashboard", require("./routes/dashboardRoutes"));
+app.use("/api/call", require("./routes/callRoutes"));
+app.use("/api/plan", require("./routes/planRoutes"));
+app.use("/api/payment", require("./routes/paymentRoutes"));
+app.use("/api/voice", require("./routes/voiceRoutes"));
 
 // ================== TEST ROUTE ==================
 app.get("/", (req, res) => {
