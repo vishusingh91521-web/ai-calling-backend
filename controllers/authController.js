@@ -93,9 +93,11 @@ const googleLogin = async (req, res) => {
     let user = await User.findOne({ email });
 
     if (!user) {
-      user = await User.create({
+      const hashedPassword =await bcrypt.hash("google-login", 10);
+
+      user =await User.create({
         email,
-        password: "google-login",
+        password: hashedPassword,
         plan: "free",
         callsUsedToday: 0,
         lastCallDate: new Date(),
