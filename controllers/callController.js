@@ -6,10 +6,25 @@ const User = require("../models/User");
 // ===============================
 // 📊 PLAN CONFIGURATION
 // ===============================
-const PLAN_CONFIG = {
-  free: { dailyCalls: 100, maxMinutesPerCall: 15 },
-  pro1999: { dailyCalls: 250, maxMinutesPerCall: 30 },
-  pro3999: { dailyCalls: 500, maxMinutesPerCall: 40 }
+const PLANS = {
+  free: {
+    name: "Free",
+    price: 0,
+    dailyLimit: 100,
+    maxMinutesPerCall: 15,
+  },
+  pro1999: {
+    name: "Pro ₹1999",
+    price: 1999,
+    dailyLimit: 250,
+    maxMinutesPerCall: 30,
+  },
+  pro3999: {
+    name: "Pro ₹3999",
+    price: 3999,
+    dailyLimit: 500,
+    maxMinutesPerCall: 40,
+  },
 };
 
 // ===============================
@@ -82,7 +97,7 @@ const makeOutboundCall = async (req, res) => {
     // ===============================
     // 🚫 DAILY CALL LIMIT CHECK
     // ===============================
-    if (user.callsUsedToday >= planData.dailyCalls) {
+    if (user.callsUsedToday >= planData.dailyLimit) {
       return res.status(403).json({
         success: false,
         message: "Daily call limit reached.",
