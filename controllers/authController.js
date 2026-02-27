@@ -1,5 +1,5 @@
 const User = require("../models/User");
-const bcrypt = require("bcryptjs");
+// const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 
@@ -33,13 +33,11 @@ const handleDailyReset = async (user) => {
 };
 
 // ================= REGISTER =================
+const bcrypt = require("bcryptjs");
+
 const registerUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
-    }
 
     const userExists = await User.findOne({ email });
 
@@ -51,11 +49,7 @@ const registerUser = async (req, res) => {
 
     const user = await User.create({
       email,
-      password: hashedPassword,
-      plan: "free",
-      callsUsedToday: 0,
-      lastCallDate: new Date(),
-      subscriptionExpiresAt: null
+      password: hashedPassword
     });
 
     res.status(201).json({
@@ -74,10 +68,6 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
-    }
 
     const user = await User.findOne({ email });
 
