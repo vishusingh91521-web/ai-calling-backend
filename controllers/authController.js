@@ -21,12 +21,28 @@ const generateToken = (id) => {
   );
 };
 
+// ================= DAILY RESET HELPER =================
+const handleDailyReset = async (user) => {
+  const today = new Date().toDateString();
+
+  if (!user.lastCallDate || user.lastCallDate.toDateString() !== today) {
+    user.callsUsedToday = 0;
+    user.lastCallDate = new Date();
+    await user.save();
+  }
+};
+
 // ================= REGISTER =================
 const registerUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password required" });
+    }
+
     const userExists = await User.findOne({ email });
+
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
     }
@@ -44,10 +60,12 @@ const registerUser = async (req, res) => {
 
     res.status(201).json({
       message: "User registered successfully",
-      token: generateToken(user._id)
+      token: generateToken(user._id),
+      plan: user.plan
     });
 
   } catch (error) {
+    console.log("REGISTER ERROR:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -57,22 +75,30 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password required" });
+    }
+
     const user = await User.findOne({ email });
+
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
     res.json({
       message: "Login successful",
-      token: generateToken(user._id)
+      token: generateToken(user._id),
+      plan: user.plan
     });
 
   } catch (error) {
+    console.log("LOGIN ERROR:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -81,6 +107,10 @@ const loginUser = async (req, res) => {
 const googleLogin = async (req, res) => {
   try {
     const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ message: "Token required" });
+    }
 
     const ticket = await client.verifyIdToken({
       idToken: token,
@@ -93,9 +123,9 @@ const googleLogin = async (req, res) => {
     let user = await User.findOne({ email });
 
     if (!user) {
-      const hashedPassword =await bcrypt.hash("google-login", 10);
+      const hashedPassword = await bcrypt.hash("google-login", 10);
 
-      user =await User.create({
+      user = await User.create({
         email,
         password: hashedPassword,
         plan: "free",
@@ -107,11 +137,12 @@ const googleLogin = async (req, res) => {
 
     res.json({
       message: "Google login successful",
-      token: generateToken(user._id)
+      token: generateToken(user._id),
+      plan: user.plan
     });
 
   } catch (error) {
-    console.log("Google Login Error:", error.message);
+    console.log("GOOGLE LOGIN ERROR:", error);
     res.status(500).json({ message: "Google login failed" });
   }
 };
@@ -125,7 +156,9 @@ const getDashboard = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 🔥 Auto expiry check
+    await handleDailyReset(user);
+
+    // Auto expiry
     if (
       user.plan !== "free" &&
       user.subscriptionExpiresAt &&
@@ -144,66 +177,14 @@ const getDashboard = async (req, res) => {
       plan: user.plan,
       dailyCallLimit: planData.dailyCalls,
       callsUsedToday: user.callsUsedToday,
-      callsRemaining: Math.max(
-        0,
-        planData.dailyCalls - user.callsUsedToday
-      ),
+      callsRemaining: planData.dailyCalls - user.callsUsedToday,
       maxMinutesPerCall: planData.maxMinutesPerCall,
       subscriptionExpiresAt: user.subscriptionExpiresAt
     });
 
   } catch (error) {
+    console.log("DASHBOARD ERROR:", error);
     res.status(500).json({ message: "Dashboard fetch failed" });
-  }
-};
-
-// ================= UPGRADE =================
-const upgradePlan = async (req, res) => {
-  try {
-    const { plan } = req.body;
-
-    if (!PLAN_CONFIG[plan] || plan === "free") {
-      return res.status(400).json({ message: "Invalid plan" });
-    }
-
-    const expiryDate = new Date();
-    expiryDate.setMonth(expiryDate.getMonth() + 1);
-
-    const user = await User.findById(req.user._id);
-
-    user.plan = plan;
-    user.subscriptionExpiresAt = expiryDate;
-    user.callsUsedToday = 0;
-
-    await user.save();
-
-    res.json({
-      message: "Plan upgraded successfully 🚀",
-      plan,
-      subscriptionExpiresAt: expiryDate
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: "Upgrade failed" });
-  }
-};
-
-// ================= DOWNGRADE =================
-const downgradeToFree = async (req, res) => {
-  try {
-    await User.findByIdAndUpdate(req.user._id, {
-      plan: "free",
-      subscriptionExpiresAt: null,
-      callsUsedToday: 0
-    });
-
-    res.json({
-      message: "Downgraded to Free successfully",
-      plan: "free"
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: "Downgrade failed" });
   }
 };
 
@@ -222,10 +203,6 @@ const verifyPayment = async (req, res) => {
 
     const user = await User.findById(req.user._id);
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
     const expiryDate = new Date();
     expiryDate.setMonth(expiryDate.getMonth() + 1);
 
@@ -242,8 +219,28 @@ const verifyPayment = async (req, res) => {
     });
 
   } catch (error) {
-    console.log("Payment Verification Error:", error);
+    console.log("PAYMENT ERROR:", error);
     res.status(500).json({ message: "Verification failed" });
+  }
+};
+
+// ================= DOWNGRADE =================
+const downgradeToFree = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, {
+      plan: "free",
+      subscriptionExpiresAt: null,
+      callsUsedToday: 0
+    });
+
+    res.json({
+      message: "Downgraded to Free successfully",
+      plan: "free"
+    });
+
+  } catch (error) {
+    console.log("DOWNGRADE ERROR:", error);
+    res.status(500).json({ message: "Downgrade failed" });
   }
 };
 
@@ -253,7 +250,6 @@ module.exports = {
   loginUser,
   googleLogin,
   getDashboard,
-  upgradePlan,
-  downgradeToFree,
-  verifyPayment
+  verifyPayment,
+  downgradeToFree
 };
