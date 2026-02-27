@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const protect = require("../middleware/authMiddleware");
+
 const {
   incomingCall,
   makeOutboundCall,
@@ -8,16 +9,16 @@ const {
   getCallLogs
 } = require("../controllers/callController");
 
-// 📞 Incoming call (Twilio webhook)
+// Incoming (Twilio webhook)
 router.post("/incoming", incomingCall);
 
-// 📤 Outbound call trigger
-router.get("/outbound", protect,makeOutboundCall);
+// Outbound (Protected)
+router.get("/outbound", protect, makeOutboundCall);
 
-// 📊 Status callback (Call logs save karega)
+// Status callback
 router.post("/status", callStatusCallback);
 
-// 📜 Get all call logs
-router.get("/logs", protect,getCallLogs);
+// Logs (Protected)
+router.get("/logs", protect, getCallLogs);
 
 module.exports = router;

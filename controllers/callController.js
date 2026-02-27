@@ -1,52 +1,48 @@
 const twilio = require("twilio");
 const VoiceResponse = twilio.twiml.VoiceResponse;
 const CallLog = require("../models/CallLog");
-const User = require("../models/User");
 
-// ======================================================
-// 🔥 PLAN CONFIGURATION (FINAL)
-// ======================================================
+// ===============================
+// 📊 PLAN CONFIGURATION
+// ===============================
 const PLANS = {
   free: {
-    name: "Free",
     dailyLimit: 100,
     maxMinutesPerCall: 15,
   },
   pro1999: {
-    name: "Pro ₹1999",
     dailyLimit: 250,
     maxMinutesPerCall: 30,
   },
   pro3999: {
-    name: "Pro ₹3999",
     dailyLimit: 500,
     maxMinutesPerCall: 40,
   },
 };
 
-// ======================================================
-// 📞 INCOMING CALL (TWILIO WEBHOOK)
-// ======================================================
+// ===============================
+// 📞 INCOMING CALL (Twilio Webhook)
+// ===============================
 const incomingCall = async (req, res) => {
   try {
     const twiml = new VoiceResponse();
 
     twiml.say(
-      { language: "hi-IN" },
-      "नमस्ते Vishu। CallForge AI अब Live है। आपका AI Assistant Active है।"
+      { language: "hi-IN", voice: "alice" },
+      "Namaste Vishu. CallForge AI ab live hai. Aapka AI assistant active ho chuka hai."
     );
 
     res.type("text/xml");
     res.send(twiml.toString());
   } catch (error) {
     console.log("Incoming Error:", error.message);
-    res.status(500).send("Webhook Error");
+    res.status(500).send("Error");
   }
 };
 
-// ======================================================
+// ===============================
 // 📞 OUTBOUND CALL
-// ======================================================
+// ===============================
 const makeOutboundCall = async (req, res) => {
   try {
     const { to } = req.query;
@@ -58,32 +54,34 @@ const makeOutboundCall = async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.user._id);
+    const user = req.user;
 
     if (!user) {
-      return res.status(404).json({
+      return res.status(401).json({
         success: false,
-        message: "User not found",
+        message: "Unauthorized",
       });
     }
 
-    // ======================================================
-    // 🔄 DAILY RESET
-    // ======================================================
+    // ===============================
+    // 📅 DAILY RESET
+    // ===============================
     const today = new Date().toDateString();
-    const lastCallDate = user.lastCallDate
-      ? new Date(user.lastCallDate).toDateString()
-      : null;
 
-    if (today !== lastCallDate) {
-      user.callsUsedToday = 0;
+    if (!user.lastCallDate) {
       user.lastCallDate = new Date();
-      await user.save();
+      user.callsUsedToday = 0;
+    } else {
+      const lastDate = new Date(user.lastCallDate).toDateString();
+      if (lastDate !== today) {
+        user.callsUsedToday = 0;
+        user.lastCallDate = new Date();
+      }
     }
 
-    // ======================================================
-    // ⏳ AUTO PLAN EXPIRY CHECK
-    // ======================================================
+    // ===============================
+    // ⏳ SUBSCRIPTION EXPIRY CHECK
+    // ===============================
     if (
       user.plan !== "free" &&
       user.subscriptionExpiresAt &&
@@ -92,50 +90,64 @@ const makeOutboundCall = async (req, res) => {
       user.plan = "free";
       user.subscriptionExpiresAt = null;
       user.callsUsedToday = 0;
-      await user.save();
     }
 
-    const planData = PLANS[user.plan] || PLANS["free"];
+    // ===============================
+    // 🧠 PLAN SAFETY
+    // ===============================
+    const userPlanKey = PLANS[user.plan] ? user.plan : "free";
+    const planData = PLANS[userPlanKey];
 
-    // ======================================================
+    if (!planData) {
+      return res.status(500).json({
+        success: false,
+        message: "Invalid plan configuration",
+      });
+    }
+
+    // ===============================
     // 🚫 DAILY LIMIT CHECK
-    // ======================================================
+    // ===============================
     if (user.callsUsedToday >= planData.dailyLimit) {
       return res.status(403).json({
         success: false,
-        message: "Daily call limit reached 🚫",
+        message: "Daily call limit reached",
         remainingCalls: 0,
       });
     }
 
-    // ======================================================
-    // 📞 TWILIO CLIENT
-    // ======================================================
+    // ===============================
+    // ⏱ SAFE TIME LIMIT
+    // ===============================
+    const timeLimitSeconds = planData.maxMinutesPerCall * 60;
+
+    // ===============================
+    // ☎ TWILIO CLIENT
+    // ===============================
     const client = twilio(
       process.env.TWILIO_ACCOUNT_SID,
       process.env.TWILIO_AUTH_TOKEN
     );
 
     const call = await client.calls.create({
-      url: `${process.env.PUBLIC_URL}/api/calls/incoming`,
+      url: `${process.env.PUBLIC_URL}/api/voice/incoming`,
       to: to,
       from: process.env.TWILIO_PHONE_NUMBER,
-      timeLimit: planData.maxMinutesPerCall * 60,
-      statusCallback: `${process.env.PUBLIC_URL}/api/calls/status`,
+      timeLimit: timeLimitSeconds,
+      statusCallback: `${process.env.PUBLIC_URL}/api/voice/status`,
       statusCallbackMethod: "POST",
       statusCallbackEvent: ["completed"],
     });
 
-    // ======================================================
-    // 📊 INCREMENT USAGE
-    // ======================================================
+    // ===============================
+    // 📊 UPDATE USAGE
+    // ===============================
     user.callsUsedToday += 1;
-    user.lastCallDate = new Date();
     await user.save();
 
-    // ======================================================
+    // ===============================
     // 📝 SAVE CALL LOG
-    // ======================================================
+    // ===============================
     await CallLog.create({
       user: user._id,
       from: process.env.TWILIO_PHONE_NUMBER,
@@ -147,16 +159,14 @@ const makeOutboundCall = async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Call initiated successfully 🚀",
       callSid: call.sid,
-      plan: user.plan,
-      remainingCalls:
-        planData.dailyLimit - user.callsUsedToday,
+      remainingCalls: planData.dailyLimit - user.callsUsedToday,
       maxMinutesPerCall: planData.maxMinutesPerCall,
     });
 
   } catch (error) {
     console.log("Outbound Error:", error.message);
+
     return res.status(500).json({
       success: false,
       error: error.message,
@@ -164,9 +174,9 @@ const makeOutboundCall = async (req, res) => {
   }
 };
 
-// ======================================================
-// 📊 CALL STATUS CALLBACK
-// ======================================================
+// ===============================
+// 📊 STATUS CALLBACK
+// ===============================
 const callStatusCallback = async (req, res) => {
   try {
     const { CallSid, CallStatus, CallDuration } = req.body;
@@ -186,28 +196,22 @@ const callStatusCallback = async (req, res) => {
   }
 };
 
-// ======================================================
+// ===============================
 // 📋 GET CALL LOGS
-// ======================================================
+// ===============================
 const getCallLogs = async (req, res) => {
   try {
-    const logs = await CallLog.find({
-      user: req.user._id,
-    }).sort({ createdAt: -1 });
+    const logs = await CallLog.find({ user: req.user._id }).sort({
+      createdAt: -1,
+    });
 
     res.json(logs);
   } catch (error) {
     console.log("Fetch Logs Error:", error.message);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch logs",
-    });
+    res.status(500).json({ error: "Failed to fetch logs" });
   }
 };
 
-// ======================================================
-// 📦 EXPORTS
-// ======================================================
 module.exports = {
   incomingCall,
   makeOutboundCall,
