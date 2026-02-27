@@ -41,7 +41,6 @@ const incomingCall = async (req, res) => {
 
     res.type("text/xml");
     res.send(twiml.toString());
-
   } catch (error) {
     console.log("Incoming Error:", error.message);
     res.status(500).send("Error");
@@ -80,19 +79,17 @@ const makeOutboundCall = async (req, res) => {
     // ⏳ AUTO EXPIRY CHECK
     // ===============================
     if (
-  user.plan !== "free" &&
-  user.subscriptionExpiresAt &&
-  new Date() > user.subscriptionExpiresAt
-) {
-  user.plan = "free";
-  user.subscriptionExpiresAt = null;
-  user.callsUsedToday = 0;
-  user.dailyCallLimit = PLAN_CONFIG["free"].dailyCalls; // reset limit
+      user.plan !== "free" &&
+      user.subscriptionExpiresAt &&
+      new Date() > user.subscriptionExpiresAt
+    ) {
+      user.plan = "free";
+      user.subscriptionExpiresAt = null;
+      user.callsUsedToday = 0;
+      await user.save();
+    }
 
-  await user.save();
-}
-
-    const planData = PLAN_CONFIG[user.plan] || PLAN_CONFIG["free"];
+    const planData = PLANS[user.plan] || PLANS["free"];
 
     // ===============================
     // 🚫 DAILY CALL LIMIT CHECK
@@ -101,7 +98,7 @@ const makeOutboundCall = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Daily call limit reached.",
-        remainingCalls: 0
+        remainingCalls: 0,
       });
     }
 
@@ -120,7 +117,7 @@ const makeOutboundCall = async (req, res) => {
       timeLimit: planData.maxMinutesPerCall * 60,
       statusCallback: `${process.env.PUBLIC_URL}/api/call/status`,
       statusCallbackMethod: "POST",
-      statusCallbackEvent: ["completed"]
+      statusCallbackEvent: ["completed"],
     });
 
     // ===============================
@@ -138,21 +135,20 @@ const makeOutboundCall = async (req, res) => {
       to: to,
       status: "initiated",
       duration: 0,
-      callSid: call.sid
+      callSid: call.sid,
     });
 
     res.json({
       success: true,
       callSid: call.sid,
-      remainingCalls: planData.dailyCalls - user.callsUsedToday,
-      maxMinutesPerCall: planData.maxMinutesPerCall
+      remainingCalls: planData.dailyLimit - user.callsUsedToday,
+      maxMinutesPerCall: planData.maxMinutesPerCall,
     });
-
   } catch (error) {
     console.log("Outbound Error:", error.message);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -168,12 +164,11 @@ const callStatusCallback = async (req, res) => {
       { callSid: CallSid },
       {
         status: CallStatus,
-        duration: CallDuration ? Number(CallDuration) : 0
+        duration: CallDuration ? Number(CallDuration) : 0,
       }
     );
 
     res.sendStatus(200);
-
   } catch (error) {
     console.log("Status Callback Error:", error.message);
     res.sendStatus(500);
@@ -185,11 +180,11 @@ const callStatusCallback = async (req, res) => {
 // ===============================
 const getCallLogs = async (req, res) => {
   try {
-    const logs = await CallLog.find({ user: req.user._id })
-      .sort({ createdAt: -1 });
+    const logs = await CallLog.find({ user: req.user._id }).sort({
+      createdAt: -1,
+    });
 
     res.json(logs);
-
   } catch (error) {
     console.log("Fetch Logs Error:", error.message);
     res.status(500).json({ error: "Failed to fetch logs" });
@@ -200,5 +195,5 @@ module.exports = {
   incomingCall,
   makeOutboundCall,
   callStatusCallback,
-  getCallLogs
+  getCallLogs,
 };
