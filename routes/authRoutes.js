@@ -12,7 +12,7 @@ const {
   registerUser,
   loginUser,
   getDashboard,
-  upgradePlan,
+  // upgradePlan,
   downgradeToFree,
   verifyPayment
 } = require("../controllers/authController");
