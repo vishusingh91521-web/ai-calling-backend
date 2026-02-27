@@ -20,9 +20,12 @@ app.use(cors({
     "http://localhost:3000",
     "https://ai-calling-frontend.onrender.com"
   ],
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
+
+app.options("*", cors());
 
 // ================== MIDDLEWARES ==================
 app.use(express.json());
