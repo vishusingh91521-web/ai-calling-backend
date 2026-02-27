@@ -37,14 +37,18 @@ router.post("/google-login", async (req, res) => {
     let user = await User.findOne({ email });
 
     if (!user) {
-      user = await User.create({
-        name,
-        email,
-        password: "google_user",
-        plan: "free",
-        callsRemaining: 10
-      });
-    }
+  const hashedPassword = await bcrypt.hash("google_login_user", 10);
+
+  user = await User.create({
+    name,
+    email,
+    password: hashedPassword,
+    plan: "free",
+    callsUsedToday: 0,
+    lastCallDate: new Date(),
+    subscriptionExpiresAt: null
+  });
+}
 
     const jwtToken = jwt.sign(
       { id: user._id },
