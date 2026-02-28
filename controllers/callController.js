@@ -107,7 +107,7 @@ const makeOutboundCall = async (req, res) => {
     }
 
     const minutes = Number(planData.maxMinutesPerCall);
-    if (!minutes ||  isNaaN(minutes)) {
+    if (!minutes ||  Number.isNaaN(minutes)) {
       return res.status(500).json({
         success: false,
         error: "Invalid TimeLimit value",
