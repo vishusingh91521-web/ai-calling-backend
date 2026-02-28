@@ -106,15 +106,32 @@ const makeOutboundCall = async (req, res) => {
       });
     }
 
-    const minutes = Number(planData.maxMinutesPerCall);
-    if (Number.isNaN(minutes) || minutes <= 0) {
-      return res.status(500).json({
-        success: false,
-        error: "Invalid TimeLimit value",
-      });
-    }
+console.log("Full PLANS:", PLANS);
+console.log("User Plan:", user.plan);
+console.log("Safe Plan:", safePlan);
+console.log("Plan Data Found:", planData);
 
-    const timeLimitSeconds = minutes * 60;
+if (!planData || !planData.maxMinutesPerCall) {
+  console.log("Plan missing maxMinutesPerCall");
+  return res.status(500).json({
+    success: false,
+    error: "Plan configuration broken",
+  });
+}
+
+const minutes = parseInt(planData.maxMinutesPerCall);
+
+console.log("Minutes Parsed:", minutes);
+
+if (isNaN(minutes) || minutes <= 0) {
+  console.log("Minutes invalid");
+  return res.status(500).json({
+    success: false,
+    error: "Invalid TimeLimit value",
+  });
+}
+
+const timeLimitSeconds = minutes * 60;
 
     // ===============================
     // 🚫 DAILY LIMIT CHECK
