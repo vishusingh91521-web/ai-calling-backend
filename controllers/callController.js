@@ -123,13 +123,13 @@ const minutes = parseInt(planData.maxMinutesPerCall);
 
 console.log("Minutes Parsed:", minutes);
 
-if (isNaN(minutes) || minutes <= 0) {
-  console.log("Minutes invalid");
-  return res.status(500).json({
-    success: false,
-    error: "Invalid TimeLimit value",
-  });
-}
+// if (isNaN(minutes) || minutes <= 0) {
+//   console.log("Minutes invalid");
+//   return res.status(500).json({
+//     success: false,
+//     error: "Invalid TimeLimit value",
+//   });
+// }
 
 const timeLimitSeconds = minutes * 60;
 
