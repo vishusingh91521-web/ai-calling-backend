@@ -92,16 +92,26 @@ const makeOutboundCall = async (req, res) => {
       user.callsUsedToday = 0;
     }
 
-    // ===============================
-    // 🧠 PLAN SAFETY
-    // ===============================
-    const userPlanKey = PLANS[user.plan] ? user.plan : "free";
-    const planData = PLANS[userPlanKey];
+    // ================= SAFE PLAN HANDLING =================
+    const safePlan = ["free", "pro1999", "pro3999"].includes(user.plan)
+      ? user.plan
+      : "free";
+
+    const planData = PLANS[safePlan];
 
     if (!planData) {
       return res.status(500).json({
         success: false,
-        message: "Invalid plan configuration",
+        error: "Plan configuration error",
+      });
+    }
+
+    const timeLimitSeconds = parseInt(planData.maxMinutesPerCall, 10) * 60;
+
+    if (!timeLimitSeconds || isNaN(timeLimitSeconds)) {
+      return res.status(500).json({
+        success: false,
+        error: "Invalid TimeLimit value",
       });
     }
 
@@ -115,11 +125,6 @@ const makeOutboundCall = async (req, res) => {
         remainingCalls: 0,
       });
     }
-
-    // ===============================
-    // ⏱ SAFE TIME LIMIT
-    // ===============================
-    const timeLimitSeconds = planData.maxMinutesPerCall * 60;
 
     // ===============================
     // ☎ TWILIO CLIENT
