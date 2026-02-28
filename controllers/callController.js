@@ -1,6 +1,7 @@
 const twilio = require("twilio");
 const VoiceResponse = twilio.twiml.VoiceResponse;
 const CallLog = require("../models/CallLog");
+const timeLimitSeconds = 600;
 
 // ===============================
 // 📊 PLAN CONFIGURATION
