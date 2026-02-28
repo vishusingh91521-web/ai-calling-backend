@@ -106,14 +106,15 @@ const makeOutboundCall = async (req, res) => {
       });
     }
 
-    const timeLimitSeconds = parseInt(planData.maxMinutesPerCall, 10) * 60;
-
-    if (!timeLimitSeconds || isNaN(timeLimitSeconds)) {
+    const minutes = Number(planData.maxMinutesPerCall);
+    if (!minutes ||  isNaaN(minutes)) {
       return res.status(500).json({
         success: false,
         error: "Invalid TimeLimit value",
       });
     }
+
+    const timeLimitSeconds = minutes * 60;
 
     // ===============================
     // 🚫 DAILY LIMIT CHECK
@@ -135,11 +136,11 @@ const makeOutboundCall = async (req, res) => {
     );
 
     const call = await client.calls.create({
-      url: `${process.env.PUBLIC_URL}/api/voice/incoming`,
+      url: `${process.env.PUBLIC_URL}/api/call/incoming`,
       to: to,
       from: process.env.TWILIO_PHONE_NUMBER,
       timeLimit: timeLimitSeconds,
-      statusCallback: `${process.env.PUBLIC_URL}/api/voice/status`,
+      statusCallback: `${process.env.PUBLIC_URL}/api/call/status`,
       statusCallbackMethod: "POST",
       statusCallbackEvent: ["completed"],
     });

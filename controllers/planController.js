@@ -2,7 +2,7 @@ const User = require("../models/User");
 
 exports.upgradePlan = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
     const { plan } = req.body;
 
     const user = await User.findById(userId);
